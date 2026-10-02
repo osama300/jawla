@@ -2,6 +2,7 @@
 
 import { t, setLang, getLang } from "./i18n.js";
 import { TermManager } from "./term.js";
+import { renderInsights, installTooltip } from "./insights.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -29,6 +30,7 @@ const state = {
   standupDay: null,
   standup: null,
   standupBusy: false,
+  ins: { range: store.get("insRange", 30), data: null, reportBusy: false, table: false, loadedAt: 0 },
 };
 state.filters.q = "";
 const byId = (id) => state.sessions.find((s) => s.id === id);
@@ -42,6 +44,7 @@ function makeFormatters() {
     date: new Intl.DateTimeFormat(L, { day: "numeric", month: "long" }),
     full: new Intl.DateTimeFormat(L, { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
     time: new Intl.DateTimeFormat(L, { hour: "2-digit", minute: "2-digit", hour12: false }),
+    short: new Intl.DateTimeFormat(L, { day: "numeric", month: "short" }),
     rel: new Intl.RelativeTimeFormat(L, { numeric: "auto", style: "short" }),
   };
 }
@@ -78,6 +81,7 @@ const ICON = {
   flag: '<path fill="currentColor" d="M5 2h2v1h12l-2.5 5L19 13H7v9H5V2Z"/>',
   check: '<path fill="currentColor" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm-1.2 13.6 6.4-6.4-1.4-1.4-5 5-2.6-2.6-1.4 1.4 4 4Z"/>',
   term: '<path fill="currentColor" d="M3 4h18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v12h16V6H4Zm2.3 2.3L9.9 12l-3.6 3.7-1.4-1.4L7 12 4.9 9.7l1.4-1.4ZM11 15h6v2h-6v-2Z"/>',
+  chart: '<path fill="currentColor" d="M4 3h2v16h15v2H4V3Zm4 10h3v4H8v-4Zm5-5h3v9h-3V8Zm5 3h3v6h-3v-6Z"/>',
   spark: '<path fill="currentColor" d="M11 2h2l1.2 4.8L19 8v2l-4.8 1.2L13 16h-2l-1.2-4.8L5 10V8l4.8-1.2L11 2Zm7 12h1.5l.6 2.4 2.4.6v1.5l-2.4.6-.6 2.4H18l-.6-2.4-2.4-.6V17l2.4-.6.6-2.4Z"/>',
   refresh: '<path fill="currentColor" d="M12 4a8 8 0 0 1 7.75 6H17.7A6 6 0 1 0 18 14h2.07A8 8 0 1 1 12 4Zm7-1v6h-6l2.24-2.24L19 3Z"/>',
 };
@@ -124,6 +128,7 @@ function parseHash() {
   if (h.startsWith("work/")) return { view: "work", tid: h.slice(5) };
   if (h === "ask") return { view: "ask" };
   if (h === "sessions") return { view: "sessions" };
+  if (h === "insights") return { view: "insights" };
   return { view: "today" };
 }
 function go(hash) {
@@ -189,6 +194,7 @@ function renderAll() {
   $$(".view").forEach((el) => el.classList.remove("on"));
   if (v === "today") { $("#view-today").classList.add("on"); renderToday(); }
   else if (v === "sessions") { $("#view-sessions").classList.add("on"); renderSessions(); }
+  else if (v === "insights") { $("#view-insights").classList.add("on"); showInsights(); }
   else { $("#view-work").classList.add("on"); renderWork(); }
   if (state.openId) refreshDrawer();
   const q = state.queue.active + state.queue.waiting;
@@ -204,6 +210,7 @@ function renderSidebar() {
   $("#mainNav").innerHTML = [
     ["today", "sun", t("nav.today"), todayCount, r === "today"],
     ["sessions", "list", t("nav.sessions"), state.sessions.length, r === "sessions" && !state.filters.org && !state.filters.project],
+    ["insights", "chart", t("nav.insights"), "", r === "insights"],
     ["ask", "ask", t("nav.ask"), "", r === "ask" || (r === "work" && state.terminals.find((x) => x.tid === state.route.tid)?.kind === "hub")],
   ].map(([h, ic, label, n, on]) => `<button class="nav-item ${on ? "on" : ""}" data-go="${h}"><span class="nav-ico">${svg(ic)}</span><span>${label}</span>${n !== "" ? `<span class="count">${n}</span>` : ""}</button>`).join("");
 
@@ -348,6 +355,23 @@ function standupText() {
   const su = state.standup; if (!su) return "";
   const day = state.standupDay || today();
   return [`${t("standup.title")} — ${fmt.full.format(keyDate(day))}`, su.headline, "", `${t("standup.done")}:`, ...(su.done || []).map((x) => `- ${x}`), "", `${t("standup.pending")}:`, ...(su.pending || []).map((x) => `- ${x}`), "", `${t("standup.focus")}:`, ...(su.focus || []).map((x, i) => `${i + 1}. ${x}`)].join("\n");
+}
+
+// ----- رؤى -----
+function showInsights() {
+  renderInsights($("#view-insights"), state.ins, fmt);
+  // نعيد الحساب عند الدخول أو كل دقيقتين، لا مع كل تحديث للقائمة
+  if (!state.ins.data || Date.now() - state.ins.loadedAt > 120_000) loadInsights();
+}
+async function loadInsights() {
+  const range = state.ins.range;
+  state.ins.loadedAt = Date.now();
+  try {
+    const d = await api(`/api/insights?range=${range}`);
+    if (range !== state.ins.range) return;
+    state.ins.data = d;
+  } catch (e) { toast(e.message); }
+  if (state.route.view === "insights") renderInsights($("#view-insights"), state.ins, fmt);
 }
 
 // ----- الجلسات -----
@@ -637,6 +661,7 @@ function renderPalette(q) {
   const actions = [
     [t("pal.today"), () => go("today")],
     [t("pal.ask"), () => go("ask")],
+    [t("nav.insights"), () => go("insights")],
     [t("pal.summarizeToday"), () => summarizeIds(shownSessions("today").filter((s) => !s.summary || s.summary.stale).map((s) => s.id))],
     [t("pal.theme"), () => saveSetting("theme", state.settings.theme === "dark" ? "light" : "dark")],
     [t("pal.lang"), () => saveSetting("lang", getLang() === "ar" ? "en" : "ar")],
@@ -722,6 +747,20 @@ document.addEventListener("click", async (e) => {
         return;
       }
       case "startHub": return startHub();
+      case "insReport": {
+        state.ins.reportBusy = true; showInsights();
+        try { const r = await api("/api/report", { method: "POST", body: { range: state.ins.range } }); if (state.ins.data) state.ins.data.report = r.empty ? null : r; }
+        catch (er) { toast(er.message); }
+        state.ins.reportBusy = false; return renderInsights($("#view-insights"), state.ins, fmt);
+      }
+      case "insTable": state.ins.table = !state.ins.table; return renderInsights($("#view-insights"), state.ins, fmt);
+      case "askNumbers": {
+        const q = t("ins.askQ", { n: state.ins.range || 90 });
+        const hub = state.terminals.find((y) => y.kind === "hub");
+        if (!hub) return startHub(q);
+        go("work/" + hub.tid);
+        return setTimeout(() => terms.paste(hub.tid, q), 300);
+      }
       case "askChip": {
         const text = t(a.dataset.k);
         const hub = state.terminals.find((y) => y.kind === "hub");
@@ -738,6 +777,8 @@ document.addEventListener("click", async (e) => {
   if (o) { Object.assign(state.filters, { org: o.dataset.org, project: null, q: "" }); return go("sessions"); }
   const p = e.target.closest("[data-proj]");
   if (p) { Object.assign(state.filters, { project: p.dataset.proj, org: null, q: "" }); return go("sessions"); }
+  const ir = e.target.closest("[data-irange]");
+  if (ir) { state.ins.range = +ir.dataset.irange; state.ins.data = null; store.set("insRange", state.ins.range); return showInsights(); }
   const r = e.target.closest("[data-range]");
   if (r) { state.filters.range = r.dataset.range; store.set("filters", { range: state.filters.range, agent: state.filters.agent }); return renderSessions(); }
   const ag = e.target.closest("[data-agent]");
@@ -794,6 +835,7 @@ document.addEventListener("keydown", (e) => {
 (async () => {
   try { state.settings = await api("/api/settings"); } catch {}
   applySettings();
+  installTooltip();
   state.route = parseHash();
   api("/api/health").then((h) => (state.health = h)).catch(() => {});
   load();

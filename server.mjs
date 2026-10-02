@@ -11,7 +11,8 @@ import { WebSocketServer } from "ws";
 
 import { APP, DATA_DIR, HUB_DIR, EXPORT_DIR, settings, jsonStore } from "./lib/config.mjs";
 import { Index, SOURCES } from "./lib/index.mjs";
-import { summarize, standup } from "./lib/summarize.mjs";
+import { summarize, standup, periodReport } from "./lib/summarize.mjs";
+import { computeAnalytics, analyticsMarkdown } from "./lib/analytics.mjs";
 import { Terminals } from "./lib/terminals.mjs";
 import { writeHubFiles, isHubSession } from "./lib/hub.mjs";
 import { exportFile, createGist } from "./lib/share.mjs";
@@ -27,6 +28,7 @@ const index = new Index(path.join(DATA_DIR, "index.json"), { exclude: isHubSessi
 const meta = jsonStore("meta.json"); // id -> { status, pinned, note, title }
 const summaries = jsonStore("summaries.json"); // id -> { ...summary, forLastAt, at }
 const standups = jsonStore("standups.json"); // day -> { ...standup, at, forKey }
+const reports = jsonStore("reports.json"); // "<range>:<to>" -> { ...report, at, lang }
 const terms = new Terminals();
 
 // ===== طابور التلخيص =====
@@ -145,7 +147,8 @@ function refreshHub() {
       file: d.file,
     };
   });
-  writeHubFiles(list, { port: PORT });
+  const analytics = [7, 30, 0].map((range) => analyticsMarkdown(computeAnalytics(index.sessions(), decorate, { range })));
+  writeHubFiles(list, { port: PORT, analytics: analytics.join("\n") });
 }
 
 async function freshIndex() {
@@ -287,6 +290,33 @@ async function handle(req, res) {
   }
 
   if (p === "/api/health" && M === "GET") return send(res, 200, healthInfo());
+
+  if (p === "/api/insights" && M === "GET") {
+    await freshIndex();
+    const range = Number(url.searchParams.get("range") ?? 30);
+    const a = computeAnalytics(index.sessions(), decorate, { range });
+    const cached = reports.data[`${range}:${a.to}`];
+    return send(res, 200, { ...a, report: cached && cached.lang === settings.data.lang ? cached : null });
+  }
+
+  if (p === "/api/report" && M === "POST") {
+    const { range = 7 } = await readBody(req);
+    const a = computeAnalytics(index.sessions(), decorate, { range });
+    if (!a.totals.sessions) return send(res, 200, { empty: true });
+    const fromMin = new Date(a.from).getTime();
+    const lines = index
+      .sessions()
+      .filter((s) => s.lastAt >= fromMin)
+      .map(decorate)
+      .sort((x, y) => y.lastAt - x.lastAt)
+      .slice(0, 60)
+      .map((d) => `- [${d.project}] ${d.title} — ${d.meta.status || d.summary?.state || "?"}${d.summary?.pending?.length ? ` · open: ${d.summary.pending.slice(0, 2).join(" | ")}` : ""}`)
+      .join("\n");
+    const r = await periodReport(analyticsMarkdown(a), lines, { model: settings.data.summaryModel === "haiku" ? "sonnet" : settings.data.summaryModel, lang: settings.data.lang, days: range || a.days });
+    reports.data[`${range}:${a.to}`] = { ...r, at: Date.now(), lang: settings.data.lang };
+    reports.save();
+    return send(res, 200, reports.data[`${range}:${a.to}`]);
+  }
 
   if (p === "/api/search" && M === "GET") {
     const q = url.searchParams.get("q") || "";
