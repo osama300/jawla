@@ -153,6 +153,12 @@ async function main() {
         fs.writeFileSync(PLIST, plist());
         execFileSync("launchctl", ["bootstrap", `gui/${process.getuid()}`, PLIST]);
         console.log(`autostart on — Dawra starts at login${flag("--no-window") ? "" : " and opens its window"}.`);
+        if (ROOT.startsWith("/Volumes/")) {
+          // عملية الخلفية تحتاج إذن macOS لقراءة قرص خارجي، ويظهر طلب الإذن مرة واحدة
+          console.log(`\nNote: Dawra lives on an external volume (${ROOT.split("/").slice(0, 3).join("/")}).
+macOS will ask once to let "node" access files on that volume — click Allow.
+If you missed it: System Settings → Privacy & Security → Files & Folders → node → Removable/Network Volumes.`);
+        }
       } else {
         fs.rmSync(PLIST, { force: true });
         console.log("autostart off");
