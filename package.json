@@ -1,0 +1,11 @@
+{
+  "name": "sessions-hub",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "لوحة محلية لتصفح جلسات Claude Code ومراجعتها يوميًا",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
