@@ -6,7 +6,7 @@ set -euo pipefail
 
 REPO="osama300/jawla"
 TARBALL="https://codeload.github.com/${REPO}/tar.gz/refs/heads/main"
-PORT=4477
+PORT="${PORT:-4477}"
 
 say() { printf '\033[1;32m›\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!\033[0m %s\n' "$*"; }
