@@ -1,4 +1,4 @@
-// Dawra — خادم محلي: واجهة الجلسات، والملخصات، والترمينالات المدمجة، والمساعد المركزي.
+// Jawla — خادم محلي: واجهة الجلسات، والملخصات، والترمينالات المدمجة، والمساعد المركزي.
 
 import http from "node:http";
 import fs from "node:fs";
@@ -118,7 +118,7 @@ function decorate(s) {
     summary: sum ? { ...sum, stale: sum.forLastAt !== s.lastAt } : null,
     summarizing: jobs.get(s.id) || null,
     summaryError: failures[s.id] || null,
-    // نشطة: مفتوحة في ترمينال داخل Dawra، أو تغيّر ملفها خلال آخر دقيقتين
+    // نشطة: مفتوحة في ترمينال داخل Jawla، أو تغيّر ملفها خلال آخر دقيقتين
     live: term ? "open" : Date.now() - s.lastAt < 120_000 ? "recent" : null,
     tid: term?.tid || null,
   };
@@ -208,7 +208,7 @@ function openHub() {
   // نكمل آخر محادثة مع المساعد إن وُجدت، حتى يتذكر ما سألته سابقًا
   const hasPrev = agent === "claude" && [...index.byId.values()].some((s) => s.source === "claude" && isHubSession(s));
   const command = agent === "codex" ? "codex" : hasPrev ? "claude --continue" : "claude";
-  return terms.open({ kind: "hub", title: "Dawra", cwd: HUB_DIR, command, source: agent });
+  return terms.open({ kind: "hub", title: "Jawla", cwd: HUB_DIR, command, source: agent });
 }
 
 function healthInfo() {
@@ -365,7 +365,7 @@ async function handle(req, res) {
       const d = decorate(s);
       const out = exportFile(full, { title: d.title, summary: d.summary }, { format: body.format, includeAssistant: body.includeAssistant !== false });
       let url = null;
-      if (body.gist) url = await createGist(out.file, `${d.title} — exported with Dawra`);
+      if (body.gist) url = await createGist(out.file, `${d.title} — exported with Jawla`);
       return send(res, 200, { file: out.file, name: path.basename(out.file), redacted: out.redacted, url });
     }
   }
@@ -470,21 +470,21 @@ server.on("upgrade", (req, socket, head) => {
 
 server.on("error", (e) => {
   if (e.code === "EADDRINUSE") {
-    console.error(`Port ${PORT} is busy — Dawra is probably already running: http://localhost:${PORT}`);
+    console.error(`Port ${PORT} is busy — Jawla is probably already running: http://localhost:${PORT}`);
     process.exit(0);
   }
   throw e;
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`Dawra running on http://localhost:${PORT}  (data: ${DATA_DIR})`);
+  console.log(`Jawla running on http://localhost:${PORT}  (data: ${DATA_DIR})`);
   index.scan().then(() => {
     refreshHub();
     console.log(`indexed ${index.sessions().length} sessions`);
   });
   setInterval(() => freshIndex().then(autoSummarize).catch(() => {}), 120_000);
   setTimeout(autoSummarize, 20_000);
-  if (process.env.DAWRA_OPEN_ON_START === "1") openAppWindowOnce();
+  if (process.env.JAWLA_OPEN_ON_START === "1") openAppWindowOnce();
 });
 
 // عند التشغيل التلقائي مع الجهاز نفتح النافذة مرة واحدة، لا عند كل إعادة تشغيل للخادم

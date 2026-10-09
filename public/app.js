@@ -1,4 +1,4 @@
-// Dawra — الواجهة. صفحات: اليوم، الجلسات، مساحة العمل (ترمينالات واسأل دورة).
+// Jawla — الواجهة. صفحات: اليوم، الجلسات، مساحة العمل (ترمينالات واسأل جولة).
 
 import { t, setLang, getLang } from "./i18n.js";
 import { TermManager } from "./term.js";
@@ -9,8 +9,8 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
 // ===== حالة التطبيق =====
 const store = {
-  get(k, d) { try { return JSON.parse(localStorage.getItem("dawra." + k)) ?? d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem("dawra." + k, JSON.stringify(v)); } catch {} },
+  get(k, d) { try { return JSON.parse(localStorage.getItem("jawla." + k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("jawla." + k, JSON.stringify(v)); } catch {} },
 };
 const state = {
   sessions: [],
@@ -618,7 +618,7 @@ async function settingsModal() {
     <div class="field"><label class="switch"><input type="checkbox" data-set="autoSummarize" ${s.autoSummarize ? "checked" : ""}/> ${t("set.auto")}</label><span class="hint">${t("set.autoD", { n: s.autoSummarizeIdleMin })}</span></div>
     ${h.codex ? `<div class="field"><label>${t("set.hub")}</label>${sel("hubAgent", [["claude", "Claude Code"], ["codex", "Codex"]])}</div>` : ""}
     <div class="field">${h.cleanupPeriodDays != null && h.cleanupPeriodDays < 365 ? `<div class="warn-box">${t("set.retentionWarn", { n: h.cleanupPeriodDays })}</div>` : `<div class="ok-box">✓ ${t("set.retentionOk", { n: h.cleanupPeriodDays ?? "?" })}</div>`}</div>
-    <div class="field"><label>${t("set.data")}</label><span class="mono">~/.dawra</span></div>
+    <div class="field"><label>${t("set.data")}</label><span class="mono">~/.jawla</span></div>
     <div class="modal-foot"><button class="btn primary" data-act="closeModal">${t("set.close")}</button></div>`);
 }
 async function saveSetting(k, v) {
@@ -707,7 +707,7 @@ document.addEventListener("click", async (e) => {
     switch (a.dataset.act) {
       case "open": {
         if (s?.tid) { closeDrawer(); return go("work/" + s.tid); }
-        // الجلسة تتغير الآن خارج دورة (نافذة Terminal أخرى مثلًا): فتح الأصل قد يتعارض معها
+        // الجلسة تتغير الآن خارج جولة (نافذة Terminal أخرى مثلًا): فتح الأصل قد يتعارض معها
         if (s?.live === "recent") {
           if (s.source === "claude") return confirm(t("open.busyFork")) && openTerminal({ sessionId: id, fork: true });
           if (!confirm(t("open.busy"))) return;

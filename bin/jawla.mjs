@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// أمر dawra: تشغيل الأداة وفتحها، والتشغيل التلقائي، والربط مع Claude Code.
+// أمر jawla: تشغيل الأداة وفتحها، والتشغيل التلقائي، والربط مع Claude Code.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -10,20 +10,20 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = Number(process.env.PORT || 4477);
 const URL_ = `http://localhost:${PORT}`;
-const DATA = process.env.DAWRA_HOME || path.join(os.homedir(), ".dawra");
-const LABEL = "com.daeerah.dawra";
+const DATA = process.env.JAWLA_HOME || path.join(os.homedir(), ".jawla");
+const LABEL = "com.daeerah.jawla";
 const PLIST = path.join(os.homedir(), "Library", "LaunchAgents", `${LABEL}.plist`);
-const CMD_FILE = path.join(os.homedir(), ".claude", "commands", "dawra.md");
-const APP_BUNDLE = path.join(os.homedir(), "Applications", "Dawra.app");
+const CMD_FILE = path.join(os.homedir(), ".claude", "commands", "jawla.md");
+const APP_BUNDLE = path.join(os.homedir(), "Applications", "Jawla.app");
 
-/** تطبيق صغير يفتح دورة، حتى تجده في Spotlight وتضعه في الـ Dock */
+/** تطبيق صغير يفتح جولة، حتى تجده في Spotlight وتضعه في الـ Dock */
 function makeAppBundle() {
   if (process.platform !== "darwin") return false;
-  const script = `do shell script "export PATH=" & quoted form of "${process.env.PATH}" & "; " & quoted form of "${process.execPath}" & " " & quoted form of "${path.join(ROOT, "bin", "dawra.mjs")}" & " open > /dev/null 2>&1 &"`;
+  const script = `do shell script "export PATH=" & quoted form of "${process.env.PATH}" & "; " & quoted form of "${process.execPath}" & " " & quoted form of "${path.join(ROOT, "bin", "jawla.mjs")}" & " open > /dev/null 2>&1 &"`;
   fs.mkdirSync(path.dirname(APP_BUNDLE), { recursive: true });
   fs.rmSync(APP_BUNDLE, { recursive: true, force: true });
   execFileSync("osacompile", ["-o", APP_BUNDLE, "-e", script]);
-  const icns = path.join(ROOT, "assets", "Dawra.icns");
+  const icns = path.join(ROOT, "assets", "Jawla.icns");
   if (fs.existsSync(icns)) fs.copyFileSync(icns, path.join(APP_BUNDLE, "Contents", "Resources", "applet.icns"));
   execFileSync("touch", [APP_BUNDLE]);
   return true;
@@ -70,7 +70,7 @@ export function openWindow(hash = "") {
 
 function plist() {
   // نحفظ PATH الحالي حتى يجد الخادم claude وcodex وgh عند التشغيل من launchd
-  const env = { PATH: process.env.PATH, HOME: os.homedir(), LANG: process.env.LANG || "en_US.UTF-8", DAWRA_OPEN_ON_START: flag("--no-window") ? "0" : "1" };
+  const env = { PATH: process.env.PATH, HOME: os.homedir(), LANG: process.env.LANG || "en_US.UTF-8", JAWLA_OPEN_ON_START: flag("--no-window") ? "0" : "1" };
   const envXml = Object.entries(env).map(([k, v]) => `    <key>${k}</key><string>${String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;")}</string>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -94,11 +94,11 @@ ${envXml}
 }
 
 const SLASH = `---
-description: Open Dawra (دورة) — your daily dashboard for Claude Code & Codex sessions
+description: Open Jawla (جولة) — your daily dashboard for Claude Code & Codex sessions
 argument-hint: "[today|ask|sessions]"
-allowed-tools: Bash(dawra:*)
+allowed-tools: Bash(jawla:*)
 ---
-Run \`dawra open $ARGUMENTS\` with the Bash tool to open the Dawra dashboard (it starts the local server if needed).
+Run \`jawla open $ARGUMENTS\` with the Bash tool to open the Jawla dashboard (it starts the local server if needed).
 Then reply with one short line saying it is open at http://localhost:${PORT}. Do nothing else.
 `;
 
@@ -107,7 +107,7 @@ async function main() {
     case "open": {
       await ensureServer();
       openWindow(["today", "ask", "sessions"].includes(args[0]) ? args[0] : "");
-      console.log(`Dawra → ${URL_}`);
+      console.log(`Jawla → ${URL_}`);
       break;
     }
     case "start":
@@ -132,7 +132,7 @@ async function main() {
       const up = await running();
       console.log(`server:    ${up ? "running at " + URL_ : "stopped"}`);
       console.log(`autostart: ${fs.existsSync(PLIST) ? "on" : "off"}`);
-      console.log(`/dawra:    ${fs.existsSync(CMD_FILE) ? "installed" : "not installed"}`);
+      console.log(`/jawla:    ${fs.existsSync(CMD_FILE) ? "installed" : "not installed"}`);
       console.log(`app:       ${fs.existsSync(APP_BUNDLE) ? APP_BUNDLE : "not installed"}`);
       console.log(`data:      ${DATA}`);
       break;
@@ -152,10 +152,10 @@ async function main() {
         fs.mkdirSync(DATA, { recursive: true });
         fs.writeFileSync(PLIST, plist());
         execFileSync("launchctl", ["bootstrap", `gui/${process.getuid()}`, PLIST]);
-        console.log(`autostart on — Dawra starts at login${flag("--no-window") ? "" : " and opens its window"}.`);
+        console.log(`autostart on — Jawla starts at login${flag("--no-window") ? "" : " and opens its window"}.`);
         if (ROOT.startsWith("/Volumes/")) {
           // عملية الخلفية تحتاج إذن macOS لقراءة قرص خارجي، ويظهر طلب الإذن مرة واحدة
-          console.log(`\nNote: Dawra lives on an external volume (${ROOT.split("/").slice(0, 3).join("/")}).
+          console.log(`\nNote: Jawla lives on an external volume (${ROOT.split("/").slice(0, 3).join("/")}).
 macOS will ask once to let "node" access files on that volume — click Allow.
 If you missed it: System Settings → Privacy & Security → Files & Folders → node → Removable/Network Volumes.`);
         }
@@ -166,21 +166,21 @@ If you missed it: System Settings → Privacy & Security → Files & Folders →
       break;
     }
     case "install": {
-      // أمر /dawra داخل Claude Code + خادم MCP ليسأل أي جلسة Claude عن جلساتك
+      // أمر /jawla داخل Claude Code + خادم MCP ليسأل أي جلسة Claude عن جلساتك
       fs.mkdirSync(path.dirname(CMD_FILE), { recursive: true });
       fs.writeFileSync(CMD_FILE, SLASH);
-      console.log(`✓ /dawra command → ${CMD_FILE}`);
+      console.log(`✓ /jawla command → ${CMD_FILE}`);
       try {
-        if (makeAppBundle()) console.log(`✓ Dawra.app → ${APP_BUNDLE} (Spotlight: "Dawra", drag it to your Dock)`);
+        if (makeAppBundle()) console.log(`✓ Jawla.app → ${APP_BUNDLE} (Spotlight: "Jawla", drag it to your Dock)`);
       } catch (e) {
-        console.log("! could not create Dawra.app:", e.message);
+        console.log("! could not create Jawla.app:", e.message);
       }
       try {
-        execFileSync("claude", ["mcp", "remove", "--scope", "user", "dawra"], { stdio: "ignore" });
+        execFileSync("claude", ["mcp", "remove", "--scope", "user", "jawla"], { stdio: "ignore" });
       } catch {}
       try {
-        execFileSync("claude", ["mcp", "add", "--scope", "user", "dawra", "--", process.execPath, path.join(ROOT, "mcp", "server.mjs")], { stdio: "inherit" });
-        console.log("✓ MCP server 'dawra' (user scope) — any Claude Code session can now search and query your sessions");
+        execFileSync("claude", ["mcp", "add", "--scope", "user", "jawla", "--", process.execPath, path.join(ROOT, "mcp", "server.mjs")], { stdio: "inherit" });
+        console.log("✓ MCP server 'jawla' (user scope) — any Claude Code session can now search and query your sessions");
       } catch (e) {
         console.log("! could not register the MCP server automatically:", e.message);
       }
@@ -190,24 +190,24 @@ If you missed it: System Settings → Privacy & Security → Files & Folders →
       fs.rmSync(CMD_FILE, { force: true });
       fs.rmSync(APP_BUNDLE, { recursive: true, force: true });
       try {
-        execFileSync("claude", ["mcp", "remove", "--scope", "user", "dawra"], { stdio: "ignore" });
+        execFileSync("claude", ["mcp", "remove", "--scope", "user", "jawla"], { stdio: "ignore" });
       } catch {}
       try {
         execFileSync("launchctl", ["bootout", `gui/${process.getuid()}/${LABEL}`], { stdio: "ignore" });
       } catch {}
       fs.rmSync(PLIST, { force: true });
-      console.log(`removed /dawra, MCP server, Dawra.app and autostart. Your data is kept in ${DATA}`);
+      console.log(`removed /jawla, MCP server, Jawla.app and autostart. Your data is kept in ${DATA}`);
       break;
     }
     default:
-      console.log(`Dawra (دورة) — daily dashboard for Claude Code & Codex sessions
+      console.log(`Jawla (جولة) — daily dashboard for Claude Code & Codex sessions
 
-  dawra [open] [today|ask|sessions]   start if needed and open the app window
-  dawra start                          run the server in the foreground
-  dawra stop | status
-  dawra autostart on [--no-window]     start at login (launchd); off to disable
-  dawra install                        add /dawra + the 'dawra' MCP server to Claude Code, and Dawra.app
-  dawra uninstall                      remove the above (keeps your data)
+  jawla [open] [today|ask|sessions]   start if needed and open the app window
+  jawla start                          run the server in the foreground
+  jawla stop | status
+  jawla autostart on [--no-window]     start at login (launchd); off to disable
+  jawla install                        add /jawla + the 'jawla' MCP server to Claude Code, and Jawla.app
+  jawla uninstall                      remove the above (keeps your data)
 
   Options: --browser  open in the default browser instead of an app window`);
   }

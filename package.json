@@ -1,9 +1,9 @@
 {
-  "name": "dawra",
+  "name": "jawla",
   "version": "1.0.0",
   "private": false,
   "type": "module",
-  "description": "Dawra (دورة) — a local daily dashboard for your Claude Code and Codex sessions: AI summaries, daily standup, an assistant that knows all your sessions, and resume-anywhere terminals. Arabic & English.",
+  "description": "Jawla (جولة) — a local daily dashboard for your Claude Code and Codex sessions: AI summaries, daily standup, an assistant that knows all your sessions, and resume-anywhere terminals. Arabic & English.",
   "scripts": {
     "start": "node server.mjs",
     "postinstall": "node scripts/postinstall.mjs"
@@ -19,7 +19,7 @@
     "ws": "^8.22.0"
   },
   "bin": {
-    "dawra": "bin/dawra.mjs"
+    "jawla": "bin/jawla.mjs"
   },
   "keywords": [
     "claude-code",
@@ -34,7 +34,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/daeerah/dawra"
+    "url": "https://github.com/osama300/jawla"
   },
   "files": [
     "bin",
@@ -42,7 +42,7 @@
     "mcp",
     "public",
     "scripts",
-    "assets/Dawra.icns",
+    "assets/Jawla.icns",
     "server.mjs",
     "README.md",
     "LICENSE"

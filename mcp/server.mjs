@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// خادم MCP صغير (stdio، بلا مكتبات) يتيح لأي جلسة Claude Code سؤال Dawra عن جلساتك.
-// يتواصل مع خادم Dawra المحلي، ويشغّله إن لم يكن يعمل.
+// خادم MCP صغير (stdio، بلا مكتبات) يتيح لأي جلسة Claude Code سؤال Jawla عن جلساتك.
+// يتواصل مع خادم Jawla المحلي، ويشغّله إن لم يكن يعمل.
 
 import path from "node:path";
 import os from "node:os";
@@ -21,7 +21,7 @@ async function up() {
 }
 async function ensure() {
   if (await up()) return;
-  const data = process.env.DAWRA_HOME || path.join(os.homedir(), ".dawra");
+  const data = process.env.JAWLA_HOME || path.join(os.homedir(), ".jawla");
   fs.mkdirSync(data, { recursive: true });
   const log = fs.openSync(path.join(data, "server.log"), "a");
   spawn(process.execPath, [path.join(ROOT, "server.mjs")], { cwd: ROOT, detached: true, stdio: ["ignore", log, log] }).unref();
@@ -57,7 +57,7 @@ function brief(s) {
 
 const TOOLS = [
   {
-    name: "dawra_sessions",
+    name: "jawla_sessions",
     description: "List the user's Claude Code and Codex sessions across ALL projects, newest first, with AI summaries (done / pending / next), status, pins and notes. Use for questions like 'what did I work on yesterday', 'what is pending', 'sessions in project X'.",
     inputSchema: {
       type: "object",
@@ -71,18 +71,18 @@ const TOOLS = [
     },
   },
   {
-    name: "dawra_search",
+    name: "jawla_search",
     description: "Full-text search inside the conversations of all sessions (not just titles). Returns matching sessions with message snippets.",
     inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
   },
   {
-    name: "dawra_session",
+    name: "jawla_session",
     description: "Get one session in detail: summary, the user's prompts with timestamps, the last assistant reply and edited files.",
     inputSchema: { type: "object", properties: { id: { type: "string", description: "Session id (full or first 8 chars)" } }, required: ["id"] },
   },
   {
-    name: "dawra_open",
-    description: "Open (resume) a session for the user in the Dawra app's embedded terminal.",
+    name: "jawla_open",
+    description: "Open (resume) a session for the user in the Jawla app's embedded terminal.",
     inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   },
 ];
@@ -95,7 +95,7 @@ async function resolveId(id) {
 }
 
 async function call(name, a = {}) {
-  if (name === "dawra_sessions") {
+  if (name === "jawla_sessions") {
     const { sessions } = await api("/api/sessions");
     const days = a.days ?? 7;
     const since = days ? Date.now() - days * 86400000 : 0;
@@ -110,7 +110,7 @@ async function call(name, a = {}) {
     list.sort((x, y) => y.lastAt - x.lastAt);
     return { count: list.length, sessions: list.slice(0, a.limit || 30).map(brief) };
   }
-  if (name === "dawra_search") {
+  if (name === "jawla_search") {
     const [{ results }, { sessions }] = await Promise.all([api(`/api/search?q=${encodeURIComponent(a.query)}`), api("/api/sessions")]);
     const by = new Map(sessions.map((s) => [s.id, s]));
     return results.slice(0, 25).map((r) => {
@@ -118,14 +118,14 @@ async function call(name, a = {}) {
       return { id: r.id, project: s?.project, title: s?.title, last: s && day(s.lastAt), snippets: r.hits.map((h) => `${h.role}: ${h.before}${h.match}${h.after}`) };
     });
   }
-  if (name === "dawra_session") {
+  if (name === "jawla_session") {
     const s = await resolveId(a.id);
     const d = await api(`/api/sessions/${s.id}`);
     const prompts = d.turns.filter((x) => x.role === "user").map((x) => `[${x.at || ""}] ${x.text.slice(0, 600)}`);
     const lastReply = [...d.turns].reverse().find((x) => x.role === "assistant")?.text.slice(-2000);
     return { ...brief(d), branch: d.branch, files: d.files.slice(0, 50), prompts: prompts.slice(-40), lastReply };
   }
-  if (name === "dawra_open") {
+  if (name === "jawla_open") {
     const s = await resolveId(a.id);
     const { tid } = await api("/api/terminals", { method: "POST", body: { sessionId: s.id } });
     return { opened: true, url: `${BASE}/#work/${tid}` };
@@ -153,7 +153,7 @@ async function handle(msg) {
   try {
     let result;
     if (method === "initialize") {
-      result = { protocolVersion: params?.protocolVersion || "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "dawra", version: "1.0.0" } };
+      result = { protocolVersion: params?.protocolVersion || "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "jawla", version: "1.0.0" } };
     } else if (method === "ping") result = {};
     else if (method === "tools/list") result = { tools: TOOLS };
     else if (method === "tools/call") {
